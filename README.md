@@ -3,7 +3,7 @@ A blazing fast bash fetch!
 
 ![alt text](https://github.com/j0shua-daniel/images/blob/main/2024-12-28_14-04.png)
 
-# Install
+## Install:
 No support for systems without hostnamectl.
 
 ```
@@ -12,3 +12,9 @@ cd fetch
 chmod +x fetch
 sudo mv fetch /usr/bin/fetch
 ```
+
+## Future Plans:
+1. Add mutiple logos.
+2. Speed it up!
+3. Add support for more distros and BSD.
+4. Keep it up to date!
