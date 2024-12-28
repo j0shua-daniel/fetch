@@ -7,7 +7,7 @@ echo -e "   ||               ||     \e[34mMemory\e[0m: $(free -m | awk '{print $
 echo -e "   ||               ||     \e[34mCache\e[0m: $(free -m | awk '{print $6}' | head -n2 | tail -n1) MiB"
 echo -e "   ||               ||     \e[34mDesktop\e[0m: $XDG_CURRENT_DESKTOP"
 echo -e "   ||_______________||     \e[34mTasks\e[0m: $(ps aux | wc -l)"
-echo -e "   /.-.-.-.-.-.-.-.-.\     \e[34mLocal IP\e[0m: $(ip -h a | grep 192.168. | cut -d'b' -f1 | cut -d'/' -f1 | sed 's/inet//g' | sed 's/ //g')"
+echo -e "   /.-.-.-.-.-.-.-.-.\     \e[34mLocal IP\e[0m: $(ip a | grep 192.168. | cut -d'b' -f1 | cut -d'/' -f1 | sed 's/inet//g' | sed 's/ //g')"
 echo -e "  /.-.-.-.-.-.-.-.-.-.\    \e[34mShell\e[0m: $SHELL"
 echo -e " /.-.-.-.-.-.-.-.-.-.-.\   \e[34mCpu\e[0m: $(lscpu | grep "Model name" | sed 's/Model name: //g' | xargs)"
 echo -e "/______/__________\___o_\  \e[34mHost\e[0m: $(hostnamectl | grep "Hardware Model" | sed 's/Hardware Model: //g' | xargs)"
