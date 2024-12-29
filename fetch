@@ -1,9 +1,8 @@
 #!/bin/sh
-#!/bin/bash
+
 echo -e "   ._________________.     "
 echo -e "   |.---------------.|     \e[34mDistro\e[0m: $(cat /etc/os-release | head -n1 | sed 's/"//g' | sed 's/PRETTY_NAME=//g' | sed 's/NAME=//g')"
 echo -e "   ||               ||     \e[34mKernel\e[0m: $(uname -r)"
-#echo -e "   ||               ||     \e[34mUptime\e[0m: $(uptime -p | sed 's/up //g')"
 echo -e "   ||               ||     \e[34mMemory\e[0m: $(free -m | awk '{print $3}' | head -n2 | tail -n1) MiB / $(free -m | awk '{print $2}' | head -n2 | tail -n1) MiB"
 echo -e "   ||               ||     \e[34mCache\e[0m: $(free -m | awk '{print $6}' | head -n2 | tail -n1) MiB"
 echo -e "   ||               ||     \e[34mThreads\e[0m: $(nproc)"
