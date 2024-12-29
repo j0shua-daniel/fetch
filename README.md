@@ -6,6 +6,8 @@ A blazing fast bash fetch!
 ## Install:
 No support for BSD & MacOS yet!
 
+Make sure `lscpu` is installed.
+
 ```
 git clone https://github.com/j0shua-daniel/fetch
 cd fetch
