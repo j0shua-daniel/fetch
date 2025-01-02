@@ -9,8 +9,7 @@ No support for BSD & MacOS **yet**!
 Make sure `lscpu` is installed.
 
 ```
-curl -o fetch https://raw.githubusercontent.com/j0shua-daniel/fetch/refs/heads/main/fetch
-chmod +x fetch
-sudo mv fetch /usr/bin/fetch
+sudo curl -o /usr/bin/fetch https://raw.githubusercontent.com/j0shua-daniel/fetch/refs/heads/main/fetch
+sudo chmod +x /usr/bin/fetch
 ```
 
