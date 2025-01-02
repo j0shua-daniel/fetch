@@ -7,7 +7,7 @@ A blazing fast bash fetch!
 
 On slower computers it is faster than fastfetch.
 
-![https://github.com/j0shua-daniel/images/blob/main/fetch.png?raw=true]
+![img](https://github.com/j0shua-daniel/images/blob/main/fetch.png?raw=true)
 
 But on faster computers fastfetch wins.
 
