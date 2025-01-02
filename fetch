@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 echo -e "   ._________________.     "
 echo -e "   |.---------------.|     \e[34mDistro\e[0m: $(cat /etc/os-release | head -n1 | sed 's/"//g' | sed 's/PRETTY_NAME=//g' | sed 's/NAME=//g')"
