@@ -1,16 +1,263 @@
-#!/bin/bash
+#!/usr/bin/env bash
+###############################################################################
+# Cross-Platform System Information Script
+# - Linux
+# - macOS
+# - *BSD (FreeBSD, OpenBSD, NetBSD)
+###############################################################################
+
+# ----------------------------------------------------------------------------
+# 1) Define Colors
+# ----------------------------------------------------------------------------
+COLOR_BLUE="\e[34m"
+COLOR_RESET="\e[0m"
+
+# ----------------------------------------------------------------------------
+# 2) Detect Operating System
+# ----------------------------------------------------------------------------
+OS_NAME="$(uname -s)"
+
+# Normalize OS_NAME into simpler terms:
+case "$OS_NAME" in
+  Linux*)   OS_FAMILY="Linux" ;;
+  Darwin*)  OS_FAMILY="macOS" ;;
+  FreeBSD*) OS_FAMILY="BSD" ; OS_NAME="FreeBSD" ;;
+  OpenBSD*) OS_FAMILY="BSD" ; OS_NAME="OpenBSD" ;;
+  NetBSD*)  OS_FAMILY="BSD" ; OS_NAME="NetBSD" ;;
+  *)        OS_FAMILY="Unknown" ;;
+esac
+
+# ----------------------------------------------------------------------------
+# 3) Gather System Info (Variables)
+# ----------------------------------------------------------------------------
+
+# --- Distro or OS Name ---
+case "$OS_FAMILY" in
+  "Linux")
+    # Try /etc/os-release
+    if [[ -f /etc/os-release ]]; then
+      distro="$(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '"')"
+      [[ -z "$distro" ]] && distro="$(grep '^NAME=' /etc/os-release | cut -d= -f2 | tr -d '"')"
+    else
+      distro="Linux (Unknown Distro)"
+    fi
+    ;;
+  "macOS")
+    # For macOS, use sw_vers
+    if command -v sw_vers &>/dev/null; then
+      # e.g., "macOS 13.2"
+      name="$(sw_vers -productName)"
+      version="$(sw_vers -productVersion)"
+      distro="$name $version"
+    else
+      distro="macOS (Unknown Version)"
+    fi
+    ;;
+  "BSD")
+    # For BSD variants, rely on uname -s
+    distro="$OS_NAME"
+    ;;
+  *)
+    distro="Unknown OS"
+    ;;
+esac
+
+# --- Kernel ---
+kernel="$(uname -r)"
+
+# --- CPU Model ---
+cpu="Unknown"
+case "$OS_FAMILY" in
+  "Linux")
+    if command -v lscpu &>/dev/null; then
+      cpu="$(lscpu | awk -F: '/Model name/ {gsub(/^[ \t]+/, "", $2); print $2}')"
+    elif [[ -f /proc/cpuinfo ]]; then
+      # Fallback parse from /proc/cpuinfo
+      cpu="$(awk -F: '/model name/ {print $2; exit}' /proc/cpuinfo | sed 's/^ //')"
+    fi
+    ;;
+  "macOS")
+    # macOS: sysctl -n machdep.cpu.brand_string
+    if command -v sysctl &>/dev/null; then
+      cpu="$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "Unknown CPU")"
+    fi
+    ;;
+  "BSD")
+    # *BSD: sysctl -n hw.model
+    if command -v sysctl &>/dev/null; then
+      cpu="$(sysctl -n hw.model 2>/dev/null || echo "Unknown CPU")"
+    fi
+    ;;
+esac
+
+# --- Number of Threads (logical CPUs) ---
+threads="1"
+case "$OS_FAMILY" in
+  "Linux")
+    threads="$(nproc --all 2>/dev/null || echo "1")"
+    ;;
+  "macOS"|"BSD")
+    if command -v sysctl &>/dev/null; then
+      threads="$(sysctl -n hw.ncpu 2>/dev/null || echo "1")"
+    fi
+    ;;
+esac
+
+# --- Current User ---
+user="$(whoami 2>/dev/null || id -un)"
+
+# --- Shell ---
+shell="$SHELL"
+[[ -z "$shell" ]] && shell="N/A"
+
+# --- Running Tasks (process count) ---
+tasks="$(ps -e --no-headers 2>/dev/null | wc -l || echo "0")"
+
+# --- Modules ---
+# Linux: use lsmod. Otherwise, set to N/A
+if [[ "$OS_FAMILY" == "Linux" && -x "$(command -v lsmod)" ]]; then
+  modules="$(lsmod | wc -l)"
+else
+  modules="N/A"
+fi
+
+# ----------------------------------------------------------------------------
+# 4) Memory (Total / Used / Cache) - Best Effort Per OS
+# ----------------------------------------------------------------------------
+mem_total_m="0"
+mem_used_m="0"
+mem_cache_m="0"
+
+case "$OS_FAMILY" in
+  "Linux")
+    # parse /proc/meminfo
+    mem_total_kb=0
+    mem_avail_kb=0
+    mem_cache_kb=0
+
+    while IFS=" " read -r key value _; do
+      case "$key" in
+        MemTotal:)     mem_total_kb="$value" ;;
+        MemAvailable:) mem_avail_kb="$value" ;;
+        Cached:)       mem_cache_kb="$value" ;;
+      esac
+    done < /proc/meminfo 2>/dev/null
+
+    # Convert to MiB
+    mem_total_m="$((mem_total_kb / 1024))"
+    # used = total - available
+    if [[ -z "$mem_avail_kb" ]]; then
+      mem_used_m="0"
+    else
+      mem_used_m="$(( (mem_total_kb - mem_avail_kb) / 1024 ))"
+    fi
+    mem_cache_m="$((mem_cache_kb / 1024))"
+    ;;
+  
+  "macOS")
+    # Total from sysctl
+    if command -v sysctl &>/dev/null; then
+      mem_total_bytes="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
+      mem_total_m="$((mem_total_bytes / 1024 / 1024))"
+    fi
+    
+    # Approximate used memory with vm_stat
+    if command -v vm_stat &>/dev/null; then
+      page_size=4096
+      # Attempt to parse page size from vm_stat
+      possible_page_size="$(vm_stat | awk '/page size of/ {print $8}' | tr -d '.')"
+      [[ -n "$possible_page_size" ]] && page_size="$possible_page_size"
+
+      # Gather page counts
+      pages_active="$(vm_stat | awk '/Pages active/ {gsub(/[^0-9]/,"",$3); print $3}')"
+      [[ -z "$pages_active" ]] && pages_active="0"
+      pages_speculative="$(vm_stat | awk '/Pages speculative/ {gsub(/[^0-9]/,"",$3); print $3}')"
+      [[ -z "$pages_speculative" ]] && pages_speculative="0"
+      pages_wired="$(vm_stat | awk '/Pages wired/ {gsub(/[^0-9]/,"",$4); print $4}')"
+      [[ -z "$pages_wired" ]] && pages_wired="0"
+
+      total_used_pages=$((pages_active + pages_wired + pages_speculative))
+      mem_used_m="$(( (total_used_pages * page_size) / 1024 / 1024 ))"
+    fi
+    
+    # macOS cache is not easy to isolate; set it as N/A
+    mem_cache_m="N/A"
+    ;;
+  
+  "BSD")
+    # For BSD, get total from sysctl:
+    if command -v sysctl &>/dev/null; then
+      mem_total_bytes="$(sysctl -n hw.physmem 2>/dev/null || echo 0)"
+      mem_total_m="$((mem_total_bytes / 1024 / 1024))"
+    fi
+
+    # Try to parse usage from top (FreeBSD style). Not all BSD variants are the same.
+    if command -v top &>/dev/null; then
+      mem_line="$(top -b -n1 2>/dev/null | grep '^Mem:' | head -n1)"
+      # Provide defaults in case parsing fails
+      active_mb=0
+      wired_mb=0
+
+      # Example line: "Mem: 1139M Active, 1175M Inact, 329M Wired ..."
+      if [[ "$mem_line" =~ ([0-9]+)M[[:space:]]+Active ]]; then
+        active_mb="${BASH_REMATCH[1]}"
+      fi
+      if [[ "$mem_line" =~ ([0-9]+)M[[:space:]]+Wired ]]; then
+        wired_mb="${BASH_REMATCH[1]}"
+      fi
+
+      mem_used_m="$((active_mb + wired_mb))"
+      mem_cache_m="N/A"
+    fi
+    ;;
+  *)
+    # Unknown OS: placeholders
+    mem_total_m="0"
+    mem_used_m="0"
+    mem_cache_m="N/A"
+    ;;
+esac
+
+# ----------------------------------------------------------------------------
+# 5) Local IP (best effort)
+# ----------------------------------------------------------------------------
+local_ip="N/A"
+case "$OS_FAMILY" in
+  "Linux")
+    if command -v ip &>/dev/null; then
+      local_ip="$(ip -4 addr show scope global | awk '/inet / {print $2}' | cut -d/ -f1 | head -n 1)"
+      [[ -z "$local_ip" ]] && local_ip="N/A"
+    else
+      # fallback
+      local_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+      [[ -z "$local_ip" ]] && local_ip="N/A"
+    fi
+    ;;
+  "macOS"|"BSD")
+    # use ifconfig + grep for first non-loopback IPv4
+    if command -v ifconfig &>/dev/null; then
+      local_ip="$(ifconfig | awk '/inet / && $2 != "127.0.0.1" {print $2; exit}')"
+      [[ -z "$local_ip" ]] && local_ip="N/A"
+    fi
+    ;;
+esac
+
+# ----------------------------------------------------------------------------
+# 6) Print the Banner & Info
+# ----------------------------------------------------------------------------
 
 echo -e "   ._________________.     "
-echo -e "   |.---------------.|     \e[34mDistro\e[0m: $(cat /etc/os-release | head -n1 | sed 's/"//g' | sed 's/PRETTY_NAME=//g' | sed 's/NAME=//g')"
-echo -e "   ||               ||     \e[34mKernel\e[0m: $(uname -r)"
-echo -e "   ||               ||     \e[34mMemory\e[0m: $(free -m | awk '{print $3}' | head -n2 | tail -n1) MiB / $(free -m | awk '{print $2}' | head -n2 | tail -n1) MiB"
-echo -e "   ||               ||     \e[34mCache\e[0m: $(free -m | awk '{print $6}' | head -n2 | tail -n1) MiB"
-echo -e "   ||               ||     \e[34mThreads\e[0m: $(nproc)"
-echo -e "   ||_______________||     \e[34mTasks\e[0m: $(ps aux | wc -l)"
-echo -e "   /.-.-.-.-.-.-.-.-.\     \e[34mLocal IP\e[0m: $(ip a | grep 192.168. | cut -d'b' -f1 | cut -d'/' -f1 | sed 's/inet//g' | sed 's/ //g')"
-echo -e "  /.-.-.-.-.-.-.-.-.-.\    \e[34mShell\e[0m: $SHELL"
-echo -e " /.-.-.-.-.-.-.-.-.-.-.\   \e[34mCpu\e[0m: $(lscpu | grep "Model name" | sed 's/Model name: //g' | xargs)"
-echo -e "/______/__________\___o_\  \e[34mUser\e[0m: $(whoami)"
-echo -e "\_______________________/  \e[34mModules\e[0m: $(cat /proc/modules | wc -l)"
+echo -e "   |.---------------.|     ${COLOR_BLUE}Distro${COLOR_RESET}: $distro"
+echo -e "   ||               ||     ${COLOR_BLUE}Kernel${COLOR_RESET}: $kernel"
+echo -e "   ||               ||     ${COLOR_BLUE}Memory${COLOR_RESET}: ${mem_used_m} MiB / ${mem_total_m} MiB"
+echo -e "   ||               ||     ${COLOR_BLUE}Cache${COLOR_RESET}: ${mem_cache_m}"
+echo -e "   ||               ||     ${COLOR_BLUE}Threads${COLOR_RESET}: $threads"
+echo -e "   ||_______________||     ${COLOR_BLUE}Tasks${COLOR_RESET}: $tasks"
+echo -e "   /.-.-.-.-.-.-.-.-.\\     ${COLOR_BLUE}Local IP${COLOR_RESET}: $local_ip"
+echo -e "  /.-.-.-.-.-.-.-.-.-.\\    ${COLOR_BLUE}Shell${COLOR_RESET}: $shell"
+echo -e " /.-.-.-.-.-.-.-.-.-.-.\\   ${COLOR_BLUE}CPU${COLOR_RESET}: $cpu"
+echo -e "/______/__________\\___o_\\  ${COLOR_BLUE}User${COLOR_RESET}: $user"
+echo -e "\\_______________________/  ${COLOR_BLUE}Modules${COLOR_RESET}: $modules"
 echo ""
 
+exit 0
