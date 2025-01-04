@@ -13,9 +13,6 @@ But on faster computers [fastfetch](https://github.com/fastfetch-cli/fastfetch) 
 
 It is about 2x faster than [neofetch](https://github.com/dylanaraps/neofetch)
 
-## Install:
-No support for BSD & MacOS **yet**!
-
 Make sure `lscpu` is installed.
 
 ```
