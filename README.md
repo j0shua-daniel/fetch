@@ -1,3 +1,5 @@
+# NO LONGER MAINTAINED! I no longer support linux and what the linux foundation does and I will NOT make any script/software to improve experience on linux. [More info](https://gist.github.com/j0shua-daniel/65abe881f363a007a2f4efcb08cc5a4a).
+
 # Fetch
 A blazing fast bash fetch!
 
